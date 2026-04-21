@@ -82,7 +82,7 @@ export default function ResultArt({ creature }: ResultArtProps) {
   };
 
   return (
-    <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
+    <svg viewBox="0 0 300 300" className="result-art-svg">
       <defs>
         <radialGradient id={`glow-${creature}`} cx="50%" cy="45%" r="50%">
           <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
