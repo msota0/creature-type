@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Clock3, Leaf, RotateCcw, Search } from "lucide-react";
+import { BookOpen, Clock3, Leaf, RotateCcw, Search, Share2 } from "lucide-react";
 import { CREATURES, type CreatureKey } from "../data/creatures";
 import ResultArt from "./ResultArt";
 
@@ -9,9 +9,13 @@ type ResultScreenProps = {
   onRestart: () => void;
 };
 
+// Match the base URL used in LibraryCreatureQuiz.tsx
+const API_BASE = "http://localhost:8000";
+
 export default function ResultScreen({ creatureKey, onRestart }: ResultScreenProps) {
   const creature = CREATURES[creatureKey];
   const [c1, c2] = creature.colors;
+  const [isSharing, setIsSharing] = useState(false);
 
   const chips = useMemo(
     () => [
@@ -21,6 +25,46 @@ export default function ResultScreen({ creatureKey, onRestart }: ResultScreenPro
     ],
     [creature]
   );
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      // Fetch the pre-generated story image from FastAPI
+      const res = await fetch(`${API_BASE}/quiz-attempts/story/${creatureKey}`);
+      if (!res.ok) throw new Error("Failed to fetch story image");
+      
+      const blob = await res.blob();
+      const file = new File([blob], `${creature.name}-library-creature.png`, {
+        type: "image/png",
+      });
+
+      // Try native share sheet (mobile)
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `I'm a ${creature.name}!`,
+          text: `${creature.title} — find out your library creature!`,
+        });
+      } else {
+        // Desktop fallback: download the PNG
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      // AbortError = user cancelled the share sheet, that's fine
+      if ((err as Error).name !== "AbortError") {
+        console.error("Share failed:", err);
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <motion.div
@@ -69,7 +113,7 @@ export default function ResultScreen({ creatureKey, onRestart }: ResultScreenPro
           </div>
 
           <div className="result-resources">
-            <p className="result-info-heading">You’d probably love</p>
+            <p className="result-info-heading">You'd probably love</p>
             <div className="result-chip-list">
               {chips.map((chip) => {
                 const Icon = chip.icon;
@@ -83,10 +127,21 @@ export default function ResultScreen({ creatureKey, onRestart }: ResultScreenPro
             </div>
           </div>
 
-          <button className="result-restart-button" onClick={onRestart}>
-            <RotateCcw size={16} />
-            <span>Take the quiz again</span>
-          </button>
+          <div className="result-button-row">
+            <button
+              className="result-share-button"
+              onClick={handleShare}
+              disabled={isSharing}
+            >
+              <Share2 size={16} />
+              <span>{isSharing ? "Preparing..." : "Share result"}</span>
+            </button>
+
+            <button className="result-restart-button" onClick={onRestart}>
+              <RotateCcw size={16} />
+              <span>Take the quiz again</span>
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
